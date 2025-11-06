@@ -48,6 +48,16 @@ class FinalizedSchedule extends Model
         return $assignments;
     }
 
+    public function course()
+    {
+        return $this->belongsTo(Course::class, 'course_code', 'name');
+    }
+
+    public function room()
+    {
+        return $this->belongsTo(Room::class, 'classroom', 'name');
+    }
+
     /**
      * Optional: Enforce that finalized schedules cannot have unassigned subjects.
      * This is a “safety net” if you try to save through backend.

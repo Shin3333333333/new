@@ -56,6 +56,7 @@ Route::put('/user', [UserController::class, 'update'])->middleware('auth:sanctum
 Route::put('/user/password', [UserController::class, 'updatePassword'])->middleware('auth:sanctum');
 Route::put('/professor/details', [ProfessorController::class, 'updateDetails'])->middleware('auth:sanctum', 'role:faculty');
 Route::get('/professor/details', [ProfessorController::class, 'getDetails'])->middleware('auth:sanctum', 'role:faculty');
+Route::get('/faculty/schedule', [ProfessorController::class, 'getSchedule'])->middleware('auth:sanctum', 'role:faculty');
 
 /*
 |--------------------------------------------------------------------------
@@ -114,6 +115,19 @@ Route::get('/active-schedule', [ActiveScheduleController::class, 'getActive']);
 Route::post('/set-active-schedule', [ActiveScheduleController::class, 'setActive']);
 Route::post('/detect-conflicts', [ScheduleController::class, 'detectConflicts']);
 Route::get('/errors', [ErrorLogController::class, 'index']);
+
+use App\Http\Controllers\TaskController;
+
+/*
+|--------------------------------------------------------------------------
+| Task Management
+|--------------------------------------------------------------------------
+*/
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/tasks', [TaskController::class, 'index']);
+    Route::post('/tasks', [TaskController::class, 'store']);
+    Route::delete('/tasks/{task}', [TaskController::class, 'destroy']);
+});
 
 /*
 |--------------------------------------------------------------------------

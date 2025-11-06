@@ -10,5 +10,5 @@ class ActiveSchedule extends Model
     protected $table = 'active_schedules';
 
     // Allow mass assignment for these fields
-    protected $fillable = ['academicYear', 'semester'];
+    protected $fillable = ['academicYear', 'semester', 'batch_id', 'staged_at'];
 }

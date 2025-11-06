@@ -24,6 +24,7 @@
         <!-- Faculty Links -->
         <template v-if="userType === 'faculty'">
           <router-link to="/faculty/dashboard" class="side-link" active-class="active">Dashboard</router-link>
+          <router-link to="/faculty/calendar" class="side-link" active-class="active">Calendar</router-link>
           <!-- You can add more faculty-specific links here -->
         </template>
       </nav>
@@ -145,34 +146,21 @@ export default {
       if (newVal) {
         this.fetchUserInfo();
       }
-
-      // Clean up existing interval
-      if (this.scheduleUpdateInterval) {
-        clearInterval(this.scheduleUpdateInterval);
-        this.scheduleUpdateInterval = null;
-      }
-      
-      // Set up new interval if authenticated
-      if (newVal) {
-        this.scheduleUpdateInterval = setInterval(() => {
-          this.fetchActiveScheduleInfo();
-        }, 30000);
-      }
     },
   },
   mounted() {
     // Set up periodic updates for active schedule
     if (this.isAuthenticated) {
-      this.scheduleUpdateInterval = setInterval(() => {
-        this.fetchActiveScheduleInfo();
-      }, 5000); // Update every 5 seconds
+      this.scheduleUpdateInterval = null;
     }
+    window.addEventListener('schedule-updated', this.fetchActiveScheduleInfo);
   },
   beforeUnmount() {
     // Clean up interval
     if (this.scheduleUpdateInterval) {
-      clearInterval(this.scheduleUpdateInterval);
+      this.scheduleUpdateInterval = null;
     }
+    window.removeEventListener('schedule-updated', this.fetchActiveScheduleInfo);
   },
   methods: {
     fetchUserInfo() {
@@ -224,8 +212,9 @@ html,
 body {
   margin: 0;
   padding: 0;
-  overflow-x: hidden;
+  overflow: hidden;
   width: 100%;
+  height: 100%;
 }
 
 /* login screen */
@@ -243,10 +232,10 @@ body {
   grid-template-columns: 260px 1fr;
   gap: 24px;
   padding: 24px;
-  min-height: 100vh;
+  height: 100vh;
   background: #f7f7f7;
   box-sizing: border-box;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 /* sidebar */
@@ -349,117 +338,15 @@ body {
   gap: 24px;
   width: 100%;
   height: calc(100vh - 48px);
+  overflow: hidden;
 }
 
 .content-wrapper {
-  overflow-y: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 24px;
   flex-grow: 1;
-}
-
-/* sidebar */
-.sidebar {
-  background: #f2f2f2;
-  border-radius: 24px;
-  padding: 28px 18px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.04);
-  height: calc(100vh - 48px);
-  transition: transform 0.3s ease-in-out;
-  z-index: 2100;
-  max-width: 260px;
-  width: 100%;
-  position: -webkit-sticky; /* For Safari support */
-  position: sticky;
-  top: 24px; /* Adjust this value as needed to control where it sticks */
-  align-self: start; /* Ensures it aligns to the start of the grid cell */
-}
-
-.side-logo {
-  font-weight: 700;
-  font-size: 22px;
-  margin-bottom: 24px;
-  text-align: center;
-}
-
-.side-nav-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 100%;
-}
-
-.side-link {
-  display: block;
-  padding: 14px 12px;
-  text-decoration: none;
-  color: #333;
-  border-radius: 12px;
-  font-size: 16px;
-  font-weight: 600;
-  transition: background .15s ease, color .15s ease;
-}
-
-.side-link:hover {
-  background: #eaeaea;
-}
-
-.side-link.active {
-  background: #ffffff;
-  color: #111;
-}
-
-.sidebar .generate-btn,
-.error-loog-btn {
-  width: 100%;
-  margin-top: 40px;
-  padding: 0 18px; /* horizontal padding */
-  height: 48px;    /* fixed height */
-  border-radius: 18px;
-  background: #000;
-  color: #fff;
-  border: none;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
-  text-decoration: none;
-  text-align: center;
-  display: flex;           /* use flex to center content */
-  justify-content: center;
-  align-items: center;
-  font-size: 16px;
-}
-
-
-.error-loog-btn {
-  margin-top: auto;
-}
-
-/* overlay */
-
-.overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.4);
-  z-index: 2000;
-}
-
-/* main */
-
-.main-area {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  width: 100%;
-  max-width: 100%;
-  overflow-y: auto;
 }
 
 .top-bar {
@@ -598,10 +485,9 @@ body {
   padding: 22px;
   box-shadow: 0 10px 26px rgba(0,0,0,0.04);
   overflow: auto;
-  min-height: calc(100vh - 160px);
   width: 100%;
-  max-width: 100%;
-  overflow-x: auto; /* Allow horizontal scroll only if content overflows, but prevent body scroll */
+  flex-grow: 1;
+  min-height: 0;
 }
 
 /* min screen */
@@ -611,6 +497,7 @@ body {
     grid-template-columns: 1fr;
     padding: 16px;
     gap: 0;
+    overflow-x: hidden; /* allow x scroll on mobile */
   }
 
   .sidebar {
@@ -640,6 +527,7 @@ body {
   .main-area {
     padding-left: 0;
     padding-right: 0;
+    overflow: auto; /* allow scroll on mobile */
   }
 
   .top-bar {
@@ -651,6 +539,7 @@ body {
     margin: 0;
     border-radius: 16px;
     min-height: calc(100vh - 120px);
+    overflow: auto; /* allow scroll on mobile */
   }
 
   /* Ensure no horizontal overflow on mobile */

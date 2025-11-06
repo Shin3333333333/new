@@ -146,33 +146,37 @@ class FinalizedScheduleController extends Controller
         $validated = $request->validate([
             'academicYear' => 'required|string',
             'semester' => 'required|string',
+            'batch_id' => 'required|string',
         ]);
 
-        // Clear any previous active schedule
+        $batchId = $validated['batch_id'];
+
+        // Find the schedule to activate
+        $scheduleToActivate = FinalizedSchedule::where('batch_id', $batchId)->first();
+
+        if (!$scheduleToActivate) {
+            return response()->json(['success' => false, 'message' => 'Schedule not found.'], 404);
+        }
+
+        // Deactivate all other schedules
+        FinalizedSchedule::where('status', 'active')->update(['status' => 'finalized']);
+
+        // Activate the new schedule
+        $scheduleToActivate->status = 'active';
+        $scheduleToActivate->save();
+
+        // Truncate the active schedule table to ensure only one is active
         ActiveSchedule::truncate();
 
-        // Create new active record
-        $active = ActiveSchedule::create([
-            'academicYear' => $validated['academicYear'],
-            'semester' => $validated['semester'],
+        // Create the new active schedule entry
+        ActiveSchedule::create([
+            'academicYear' => $scheduleToActivate->academicYear,
+            'semester' => $scheduleToActivate->semester,
+            'batch_id' => $batchId,
+            'staged_at' => now(),
         ]);
 
-        // Update all finalized schedules’ status for clarity
-        FinalizedSchedule::where('academicYear', $validated['academicYear'])
-            ->where('semester', $validated['semester'])
-            ->update(['status' => 'active']);
-
-        // Optionally mark others as archived
-        FinalizedSchedule::where(function ($q) use ($validated) {
-            $q->where('academicYear', '!=', $validated['academicYear'])
-              ->orWhere('semester', '!=', $validated['semester']);
-        })->update(['status' => 'archived']);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Schedule staged and set as active successfully.',
-            'data' => $active,
-        ]);
+        return response()->json(['success' => true, 'message' => 'Schedule staged successfully.']);
     }
 
     /**

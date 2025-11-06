@@ -16,11 +16,13 @@ class ActiveScheduleController extends Controller
             return response()->json([]);
         }
 
+        $date = $active->staged_at ?? $active->created_at;
+
         return response()->json([
-            'academicYear' => $active->academicYear ?? $active->academic_year ?? null,
-            'semester' => $active->semester ?? null,
-            'batch_id' => $active->batch_id ?? null,
-            'staged_at' => ($active->staged_at ?? $active->created_at) ? ($active->staged_at ?? $active->created_at)->toDateTimeString() : null,
+            'academicYear' => $active->academicYear,
+            'semester' => $active->semester,
+            'batch_id' => $active->batch_id,
+            'staged_at' => $date ? Carbon::parse($date)->toDateTimeString() : null,
         ]);
     }
 

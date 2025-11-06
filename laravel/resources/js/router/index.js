@@ -23,6 +23,12 @@ const routes = [
   { path: '/dashboard', component: Dashboard, meta: { roles: ['admin', 'superadmin'] } },
   { path: '/faculty/dashboard', component: FacultyDashboard, meta: { roles: ['faculty'] } },
   { path: '/faculty-account', component: FacultyAccount, meta: { roles: ['faculty'] } },
+  {
+    path: '/faculty/calendar',
+    name: 'faculty-calendar',
+    component: () => import('../pages/views/faculty/Calendar.vue'),
+    meta: { roles: ['faculty'] }
+  },
   { path: '/', redirect: '/dashboard' },
 ];
 

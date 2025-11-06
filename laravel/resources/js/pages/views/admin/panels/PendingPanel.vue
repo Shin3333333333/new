@@ -1961,6 +1961,7 @@ async finalizeSchedule() {
       this.showModal = false;
       this.editMode = false;
       this.selectedBatch = null;
+      window.dispatchEvent(new CustomEvent('schedule-updated'));
     } else {
       this.showError("❌ Failed to finalize schedule: " + (data.message || "Unknown error"));
     }

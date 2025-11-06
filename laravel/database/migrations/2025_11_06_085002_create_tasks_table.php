@@ -11,12 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('active_schedules', function (Blueprint $table) {
+        Schema::create('tasks', function (Blueprint $table) {
             $table->id();
-            $table->string('academicYear', 50);
-            $table->string('semester', 50);
-            $table->string('batch_id', 255)->nullable();
-            $table->timestamp('staged_at')->nullable();
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->string('text');
+            $table->timestamp('reminder_time')->nullable();
+            $table->boolean('is_completed')->default(false);
             $table->timestamps();
         });
     }
@@ -26,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('active_schedules');
+        Schema::dropIfExists('tasks');
     }
 };

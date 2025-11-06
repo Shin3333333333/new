@@ -520,7 +520,14 @@ export default {
           this.toastError('Cannot set active schedule: Batch ID is missing.');
           return;
         }
-        await axios.post('/finalized-schedules/stage', { batch_id: batchId });
+
+        const payload = {
+          academicYear: this.selectedAcademicYear,
+          semester: this.selectedSemester,
+          batch_id: batchId, // Ensure batch_id is sent
+        };
+
+        await axios.post('/finalized-schedules/stage', payload);
         this.toastSuccess('Schedule has been set as active.');
         this.fetchActiveScheduleInfo();
         this.showStageModal = false;
