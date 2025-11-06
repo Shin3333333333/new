@@ -25,7 +25,8 @@ class ProfessorController extends Controller
         $user->professor()->updateOrCreate(
             ['user_id' => $user->id],
             [
-                'department' => $request->specialization,
+                'name' => $request->name,
+                'department' => $request->specialization, // Corrected from specialization to department
                 'type' => $request->type,
                 'time_unavailable' => $request->time_unavailable,
                 'status' => $request->status,

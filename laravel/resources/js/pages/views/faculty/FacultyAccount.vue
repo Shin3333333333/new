@@ -143,14 +143,19 @@
 
 <script>
 import axios from '../../../axios';
+import { useToast } from '../../../composables/useToast';
 
 export default {
+  setup() {
+    const { success, error } = useToast();
+    return { success, error };
+  },
   data() {
     return {
       user: {},
       passwordForm: {
         password: '',
-        password_confirmation: ''
+        password_confirmation: '',
       },
       professor: {
         specialization: '',
@@ -233,20 +238,20 @@ export default {
       const userToUpdate = { ...this.user, name: `${this.user.name} ${this.user.last_name}`.trim() };
       axios.put('/user', userToUpdate)
         .then(() => {
-          alert('Profile updated successfully!');
+          this.success('Profile updated successfully!');
           this.isEditingAccountInfo = false;
           this.originalUser = null;
           this.fetchUser();
         })
         .catch(error => {
           console.error('Error updating profile:', error);
-          alert('Error updating profile. Please check the console for details.');
+          this.error('Error updating profile. Please check the console for details.');
         });
     },
     updatePassword() {
       axios.put('/user/password', this.passwordForm)
         .then(response => {
-          alert('Password updated successfully!');
+          this.success('Password updated successfully!');
           this.passwordForm = {
             password: '',
             password_confirmation: ''
@@ -255,26 +260,28 @@ export default {
         })
         .catch(error => {
           console.error('Error updating password:', error);
-          alert('Error updating password. Please check the console for details.');
+          this.error('Error updating password. Please check the console for details.');
         });
     },
     updateProfessorDetails() {
       const payload = {
-        name: this.professor.name,
+        name: `${this.user.name} ${this.user.last_name}`.trim(),
         type: this.professor.type,
         specialization: this.professor.specialization,
         time_unavailable: this.professor.time_unavailable,
-        status: this.professor.status,
+        status: 'Active',
       };
 
       axios.put('/professor/details', payload)
         .then(response => {
-          console.log('Professor details updated successfully:', response.data);
-          // Optionally, you can fetch the details again to confirm the update
+          this.success('Professor details updated successfully!');
+          this.isEditingProfessorDetails = false;
           this.fetchProfessorDetails();
+          this.fetchUser();
         })
         .catch(error => {
           console.error('Error updating professor details:', error);
+          this.error('Error updating professor details. Please check the console for details.');
         });
     },
     startEditingAccountInfo() {

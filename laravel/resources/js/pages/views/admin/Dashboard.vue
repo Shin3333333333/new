@@ -73,6 +73,7 @@ import LoadingModal from "../../../components/LoadingModal.vue";
 import { useLoading } from "../../../composables/useLoading";
 import Chart from "chart.js/auto";
 import { errorStore } from "../../../assets/errorStore";
+import api from '~/axios';
 
 export default {
   name: "Dashboard",
@@ -141,18 +142,16 @@ export default {
   methods: {
     async fetchProfessors() {
       try {
-        const res = await fetch('/api/professors');
-        if (!res.ok) throw new Error(`Server returned ${res.status}`);
-        this.professors = await res.json();
+        const res = await api.get('/professors');
+        this.professors = res.data;
       } catch (err) {
         console.error('Failed to fetch professors', err);
       }
     },
     async fetchActiveScheduleInfo() {
       try {
-        const res = await fetch(`/api/active-schedule`);
-        if (!res.ok) return;
-        const data = await res.json();
+        const res = await api.get(`/active-schedule`);
+        const data = res.data;
         this.activeAcademicYear = data?.academicYear || '';
         this.activeSemester = data?.semester || '';
         this.activeBatchId = data?.batch_id || null;
@@ -162,9 +161,8 @@ export default {
     },
     async loadLatestForActive() {
       try {
-        const res = await fetch(`/api/finalized-schedules`);
-        if (!res.ok) throw new Error(`Server returned ${res.status}`);
-        const payload = await res.json();
+        const res = await api.get(`/finalized-schedules`);
+        const payload = res.data;
         const schedules = Array.isArray(payload) ? payload : payload.schedules || [];
 
         let filtered = schedules;

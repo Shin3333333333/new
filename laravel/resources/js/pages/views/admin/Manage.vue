@@ -93,7 +93,7 @@ import CreateFacultyAccountModal from './manage/CreateFacultyAccountModal.vue';
 import LoadingModal from '../../../components/LoadingModal.vue';
 import ConfirmModal from '../../../components/ConfirmModal.vue';
 import { useToast } from '../../../composables/useToast';
-import axios from "axios";
+import api from '~/axios';
 import { useLoading } from '../../../composables/useLoading';
 
 export default {
@@ -191,10 +191,10 @@ export default {
         if (tab === 'faculty') {
           await this.loadAllData(); // includes professors
         } else if (tab === 'room') {
-          const res = await axios.get('/api/rooms');
+          const res = await api.get('/rooms');
           this.roomList = res.data.data || res.data;
         } else if (tab === 'course') {
-          const res = await axios.get('/api/courses');
+          const res = await api.get('/courses');
           this.courseList = res.data.data || res.data;
         }
       } catch (e) {
@@ -239,7 +239,7 @@ export default {
 
     async loadSemesters() {
       try {
-        const res = await axios.get("/api/semesters");
+        const res = await api.get("/semesters");
         this.semesterList = res.data;
       } catch (err) {
         console.error("Failed to load semesters:", err);
@@ -249,9 +249,9 @@ export default {
     async loadAllData() {
       try {
         const [facRes, roomRes, courseRes] = await Promise.all([
-          axios.get("/api/professors"),
-          axios.get("/api/rooms"),
-          axios.get("/api/courses"),
+          api.get("/professors"),
+          api.get("/rooms"),
+          api.get("/courses"),
         ]);
         this.facultyList = facRes.data.data || facRes.data;
         this.roomList = roomRes.data.data || roomRes.data;
@@ -263,7 +263,7 @@ export default {
 
     async loadCurriculums() {
       try {
-        const res = await axios.get("/api/curriculums");
+        const res = await api.get("/curriculums");
         this.curriculumList = res.data;
       } catch (err) {
         console.error("Failed to load curricula:", err);
@@ -279,7 +279,7 @@ export default {
 
       try {
         this.show(); // show loading
-        const res = await axios.post("/api/curriculums", formData, {
+        const res = await api.post("/curriculums", formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
 
@@ -303,7 +303,7 @@ export default {
 
         if (type === "course") {
           if (!item.id) {
-            const res = await axios.post("/api/courses", item);
+            const res = await api.post("/courses", item);
             updated = res.data.course;
             this.courseList.push(updated);
           } else {
@@ -314,7 +314,7 @@ export default {
                 return rest;
               }),
             };
-            const res = await axios.put(`/api/courses/${item.id}`, payload);
+            const res = await api.put(`/courses/${item.id}`, payload);
             updated = res.data.course;
             const idx = this.courseList.findIndex(c => c.id === updated.id);
             if (idx > -1) this.courseList.splice(idx, 1, updated);
@@ -323,80 +323,46 @@ export default {
           this.showCourseModal = false;
 
         } else if (type === "faculty") {
-        let res;
-        // Normalize time_unavailable to a proper string, not "[object Object]"
-        const timeUnavailableString = Array.isArray(item.unavailableTimes)
-          ? item.unavailableTimes
-              .map(u => {
-                if (typeof u === 'string') return u;
-                if (u && typeof u === 'object') {
-                  const day = u.dayName || u.day || '';
-                  const start = u.start || '';
-                  const end = u.end || '';
-                  if (day && start && end) return `${day} ${start}–${end}`;
-                }
-                return '';
-              })
-              .filter(Boolean)
-              .join(', ')
-          : (typeof item.time_unavailable === 'string' ? item.time_unavailable : '');
+          const payload = {
+            name: item.name,
+            type: item.type,
+            department: item.department,
+            max_load: item.maxLoad,
+            status: item.status,
+            time_unavailable: item.time_unavailable,
+          };
 
-        const payload = {
-          name: item.name,
-          type: item.type,
-          department: item.department,
-          max_load: item.maxLoad,
-          status: item.status,
-          time_unavailable: timeUnavailableString,
-        };
+          let res;
+          if (!item.id) {
+            res = await api.post("/professors", payload);
+          } else {
+            res = await api.put(`/professors/${item.id}`, payload);
+          }
 
-     if (!item.id) {
-      // Prevent accidental double submission
-      if (this.facultyList.some(f => f.name === payload.name && f.department === payload.department)) {
-        console.warn("Duplicate faculty prevented");
-        return;
-      }
+          const data = res.data.data || res.data;
+          const prof = {
+            id: data.id,
+            name: data.name,
+            type: data.type,
+            department: data.department,
+            max_load: data.max_load,
+            status: data.status,
+            unavailableTimes: data.time_unavailable
+              ? data.time_unavailable.split(",").map(t => t.trim())
+              : [],
+            time_unavailable: data.time_unavailable || "",
+          };
 
-      res = await axios.post("/api/professors", payload);
-    } else {
-      res = await axios.put(`/api/professors/${item.id}`, payload);
-    }
+          const idx = this.facultyList.findIndex(f => f.id === prof.id);
+          if (idx === -1) {
+            this.facultyList.push(prof);
+          } else {
+            this.facultyList.splice(idx, 1, prof);
+          }
 
-        const data = res.data.data || res.data;
-
-       const prof = {
-        id: data.id,
-        name: data.name,
-        type: data.type,
-        department: data.department,
-        max_load: data.max_load,          // ⚡ key must match table
-        status: data.status,
-        unavailableTimes: data.time_unavailable
-          ? data.time_unavailable.split(",").map(t => t.trim())
-          : [],
-        time_unavailable: data.time_unavailable || "",
-      };
-
-
-      const idx = this.facultyList.findIndex(f => f.id === prof.id);
-
-      if (idx === -1) {
-        // ✅ New faculty → add to list
-        this.facultyList = [...this.facultyList, prof];
-      } else {
-        // ✅ Existing faculty → update
-        this.facultyList.splice(idx, 1, prof);
-      }
-
-
-        this.showFacultyModal = false
-
-
-      
-    }
-else if (type === "room") {
-  // Make sure we received a valid object
-  if (!item || !item.id || !item.name) {
+          this.showFacultyModal = false;
+        } else if (type === "room") {
+  if (!item || typeof item !== 'object' || !item.id) {
     console.warn("⚠️ Ignored invalid room data:", item);
     return;
   }
@@ -447,7 +413,7 @@ else if (type === "room") {
     async openEditCourseModal(course) {
       try {
         this.show(); // show loading
-        const res = await axios.get(`/api/courses/${course.id}`);
+        const res = await api.get(`/courses/${course.id}`);
         const courseData = res.data.course;
 
         this.courseForm = {
@@ -473,11 +439,11 @@ else if (type === "room") {
         this.confirmOpen = false;
         this.show();
         let url = "";
-      if (this.activeTable === "faculty") url = `/api/professors/${item.id}`;
-      else if (this.activeTable === "room") url = `/api/rooms/${item.id}`;
-      else if (this.activeTable === "course") url = `/api/courses/${item.id}`;
+      if (this.activeTable === "faculty") url = `/professors/${item.id}`;
+      else if (this.activeTable === "room") url = `/rooms/${item.id}`;
+      else if (this.activeTable === "course") url = `/courses/${item.id}`;
         try {
-          await axios.delete(url);
+          await api.delete(url);
           const list = this.activeTable === "faculty" ? this.facultyList : this.activeTable === "room" ? this.roomList : this.courseList;
           const idx = list.findIndex(e => e.id === item.id);
           if (idx > -1) list.splice(idx, 1);

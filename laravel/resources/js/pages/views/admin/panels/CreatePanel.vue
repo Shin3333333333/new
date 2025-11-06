@@ -243,6 +243,7 @@
 import LoadingModal from "../../../../components/LoadingModal.vue";
 import ConfirmModal from "../../../../components/ConfirmModal.vue";
 import { useLoading } from "../../../../composables/useLoading";
+import api from "@/axios";
 import "/resources/css/create.css";
 
 export default {
@@ -1211,16 +1212,14 @@ undoLastAssignment() {
       this.show();
 
       try {
-        const res = await fetch("/api/generate-schedule", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const res = await api.post("/generate-schedule", {
           body: JSON.stringify({
             academicYear: this.academicYear,
             semester: this.semester, // send the string directly
           }),
         });
 
-        const result = await res.json();
+        const result = res.data;
         if (!result || !result.success) {
           this.showError(result?.message || "Failed to generate schedule.");
           return;
@@ -1487,26 +1486,15 @@ async saveSchedule(mode = 'pending') {
     }
 
     const url = mode === 'finalized' 
-      ? `${this.apiBase}/finalized-schedules` 
-      : `${this.apiBase}/save-schedule`;
+      ? `/finalized-schedules` 
+      : `/save-schedule`;
 
-    const token = localStorage.getItem('authToken');
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({ schedule: scheduleArray, batch_id: this.selectedBatch }),
+    const res = await api.post(url, {
+      schedule: scheduleArray,
+      batch_id: this.selectedBatch,
     });
 
-    if (!res.ok) {
-      const text = await res.text();
-      this.showError(`Save failed (${res.status}): ${text.substring(0, 300)}`);
-      return;
-    }
-
-    const data = await res.json().catch(() => null);
+    const data = res.data;
     if (data && data.success) {
       this.showSuccess(mode === 'pending' ? 'Saved as pending.' : 'Schedule finalized.');
     } else {
@@ -1516,7 +1504,12 @@ async saveSchedule(mode = 'pending') {
 
   } catch (err) {
     console.error(err);
-    this.showError('Network error while saving schedule.');
+    if (err.response) {
+      const serverMsg = err.response.data?.message || err.response.data?.error || `Save failed (${err.response.status})`;
+      this.showError(serverMsg);
+    } else {
+      this.showError('Network error while saving schedule.');
+    }
   } finally {
     this.hide();
   }

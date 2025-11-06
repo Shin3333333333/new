@@ -37,8 +37,10 @@ class ScheduleController extends Controller
             $stderrLog = storage_path('logs/scheduler_stderr.log');
 
             // Build Python command
+            $ai_path = base_path('ai');
             $command = sprintf(
-                'py %s --academic_year=%s --semester=%d 2>%s',
+                'cd /d %s && py %s --academic_year=%s --semester=%d 2>%s',
+                escapeshellarg($ai_path),
                 escapeshellarg($pythonScriptPath),
                 escapeshellarg($academicYear ?? ''),
                 $semesterId,

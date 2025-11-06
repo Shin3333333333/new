@@ -61,9 +61,14 @@
 </template>
 
 <script>
-import axios from '../../../axios';
+import axios from '@/axios';
+import { useToast } from '@/composables/useToast';
 
 export default {
+  setup() {
+    const { success, error } = useToast();
+    return { toastSuccess: success, toastError: error };
+  },
   data() {
     return {
       user: {},
@@ -98,18 +103,18 @@ export default {
     updateProfile() {
       axios.put('/user', this.user)
         .then(response => {
-          alert('Profile updated successfully!');
+          this.toastSuccess('Profile updated successfully!');
           this.isEditingCredentials = false;
         })
         .catch(error => {
           console.error('Error updating profile:', error);
-          alert('Error updating profile. Please check the console for details.');
+          this.toastError('Error updating profile. Please check the console for details.');
         });
     },
     updatePassword() {
       axios.put('/user/password', this.passwordForm)
         .then(response => {
-          alert('Password updated successfully!');
+          this.toastSuccess('Password updated successfully!');
           this.isChangingPassword = false;
           this.passwordForm = {
             current_password: '',
@@ -119,7 +124,7 @@ export default {
         })
         .catch(error => {
           console.error('Error updating password:', error);
-          alert('Error updating password. Please check the console for details.');
+          this.toastError('Error updating password. Please check the console for details.');
         });
     }
   }

@@ -13,16 +13,16 @@ import FacultyAccount from '../pages/views/faculty/FacultyAccount.vue';
 
 const routes = [
   { path: '/login', component: Login },
-  { path: '/schedule', component: Schedule },
-  { path: '/create', component: Create },
-  { path: '/export', component: Export },
-  { path: '/admin-account', component: AdminAccount },
-  { path: '/error-log', component: ErrorLog },
-  { path: '/schedule/modify', component: ModifySchedule },
-  { path: '/manage', component: Manage },
-  { path: '/dashboard', component: Dashboard },
-  { path: '/faculty/dashboard', component: FacultyDashboard },
-  { path: '/faculty-account', component: FacultyAccount },
+  { path: '/schedule', component: Schedule, meta: { roles: ['admin', 'superadmin'] } },
+  { path: '/create', component: Create, meta: { roles: ['admin', 'superadmin'] } },
+  { path: '/export', component: Export, meta: { roles: ['admin', 'superadmin'] } },
+  { path: '/admin-account', component: AdminAccount, meta: { roles: ['admin', 'superadmin'] } },
+  { path: '/error-log', component: ErrorLog, meta: { roles: ['admin', 'superadmin'] } },
+  { path: '/schedule/modify', component: ModifySchedule, meta: { roles: ['admin', 'superadmin'] } },
+  { path: '/manage', component: Manage, meta: { roles: ['admin', 'superadmin'] } },
+  { path: '/dashboard', component: Dashboard, meta: { roles: ['admin', 'superadmin'] } },
+  { path: '/faculty/dashboard', component: FacultyDashboard, meta: { roles: ['faculty'] } },
+  { path: '/faculty-account', component: FacultyAccount, meta: { roles: ['faculty'] } },
   { path: '/', redirect: '/dashboard' },
 ];
 
@@ -36,10 +36,22 @@ router.beforeEach((to, from, next) => {
   const publicPages = ['/login'];
   const authRequired = !publicPages.includes(to.path);
   const isAuthenticated = !!localStorage.getItem('authToken');
+  const userType = localStorage.getItem('userType');
 
   if (authRequired && !isAuthenticated) {
     return next('/login');
   }
+
+  if (to.meta.roles && !to.meta.roles.includes(userType)) {
+    if (userType === 'admin' || userType === 'superadmin') {
+      return next('/dashboard');
+    } else if (userType === 'faculty') {
+      return next('/faculty/dashboard');
+    } else {
+      return next('/login');
+    }
+  }
+
   next();
 });
 

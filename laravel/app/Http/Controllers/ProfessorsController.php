@@ -14,7 +14,11 @@ class ProfessorsController extends Controller
 {
     public function index()
     {
-        return response()->json(Professor::all());
+        try {
+            return response()->json(Professor::with('user')->get());
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to fetch professors', 'error' => $e->getMessage()], 500);
+        }
     }
 
     public function show($id)
@@ -106,18 +110,17 @@ class ProfessorsController extends Controller
     public function createTemporaryAccount(Request $request)
     {
         $request->validate([
-            'email' => 'required|email',
+            'email' => 'required|email|unique:users,email',
         ]);
-
-        // Check if a user with the given email already exists
-        if (User::where('email', $request->email)->exists()) {
-            return response()->json(['message' => 'A user with this email already exists.'], 409);
-        }
 
         $password = Str::random(10);
 
+        // Extract name from email
+        $emailNamePart = explode('@', $request->email)[0];
+        $name = ucwords(str_replace(['.', '_', '-'], ' ', $emailNamePart));
+
         $user = User::create([
-            'name' => 'Temporary Account',
+            'name' => $name,
             'email' => $request->email,
             'password' => Hash::make($password),
             'type_id' => 2,
@@ -126,7 +129,7 @@ class ProfessorsController extends Controller
 
         Professor::create([
             'user_id' => $user->id,
-            'name' => 'Temporary Faculty',
+            'name' => $user->name,
             'type' => 'Part-time',
             'department' => 'To be assigned',
             'max_load' => 0,

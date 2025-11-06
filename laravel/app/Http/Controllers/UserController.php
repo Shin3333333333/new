@@ -33,6 +33,11 @@ class UserController extends Controller
         $user->email = $request->email;
         $user->save();
 
+        if ($user->professor) {
+            $user->professor->name = $request->name;
+            $user->professor->save();
+        }
+
         return response()->json($user);
     }
 

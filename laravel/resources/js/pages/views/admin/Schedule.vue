@@ -192,6 +192,7 @@ import ConfirmModal from "../../../components/ConfirmModal.vue";
 import { useLoading } from "../../../composables/useLoading";
 import { useToast } from "../../../composables/useToast";
 import * as XLSX from "xlsx";
+import axios from '../../../axios';
 
 export default {
   components: { LoadingModal, ConfirmModal },
@@ -319,9 +320,8 @@ export default {
     },
     async fetchProfessors() {
       try {
-        const res = await fetch('/api/professors');
-        if (!res.ok) return;
-        this.professors = await res.json();
+        const res = await axios.get('/professors');
+        this.professors = res.data;
         const byName = {};
         (Array.isArray(this.professors) ? this.professors : []).forEach(p => {
           const key = (p.name || '').toString().trim().toLowerCase();
@@ -368,12 +368,8 @@ export default {
       academic_year: this.selectedAcademicYear,
       semester: this.selectedSemester,
     };
-    const res = await fetch('/api/detect-conflicts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
+    const res = await axios.post('/detect-conflicts', payload);
+    const data = res.data;
     if (data?.message) this.toastSuccess(data.message); else this.toastInfo('Conflict detection finished');
     if (data.redirect) this.$router.push(data.redirect);
   } catch (err) {
@@ -385,9 +381,8 @@ export default {
     async loadLatestSchedule() {
       this.showLoading();
       try {
-        const res = await fetch(`/api/finalized-schedules`);
-        if (!res.ok) throw new Error(`Server returned ${res.status}`);
-        const data = await res.json();
+        const res = await axios.get(`/finalized-schedules`);
+        const data = res.data;
         const schedules = Array.isArray(data) ? data : data.schedules || [];
 
         this.allSchedules = schedules; 
@@ -398,43 +393,67 @@ export default {
           this.courseSchedules = {};
           this.academicYears = [];
           this.semesters = [];
-          this.availableSchedules = [];
-          this.selectedAcademicYear = '';
-          this.selectedSemester = '';
+          this.courseSections = [];
+          this.facultyList = [];
           return;
         }
 
-        const uniqueScheduleKeys = new Set();
-        schedules.forEach(s => {
-          if (s.academicYear && s.semester) {
-            uniqueScheduleKeys.add(`${s.academicYear}|${s.semester}`);
+        // Group schedules by academic year and semester to find the latest batch
+        const groupedByYearAndSem = schedules.reduce((acc, schedule) => {
+          const key = `${schedule.academicYear}|${schedule.semester}`;
+          if (!acc[key]) {
+            acc[key] = [];
           }
-        });
-        this.availableSchedules = Array.from(uniqueScheduleKeys).map(key => {
-          const [academicYear, semester] = key.split('|');
-          return { academicYear, semester };
-        });
+          acc[key].push(schedule);
+          return acc;
+        }, {});
 
-        this.academicYears = [...new Set(this.availableSchedules.map(s => s.academicYear))].sort((a, b) => b.localeCompare(a));
+        let latestBatch = [];
+        let latestTimestamp = 0;
 
-        if (!this.selectedAcademicYear || !this.academicYears.includes(this.selectedAcademicYear)) {
-          this.selectedAcademicYear = this.academicYears[0] || '';
+        for (const key in groupedByYearAndSem) {
+          const schedulesInGroup = groupedByYearAndSem[key];
+          const mostRecentScheduleInGroup = schedulesInGroup.reduce((latest, current) => {
+            const currentTimestamp = new Date(current.created_at).getTime();
+            return currentTimestamp > new Date(latest.created_at).getTime() ? current : latest;
+          });
+
+          const groupTimestamp = new Date(mostRecentScheduleInGroup.created_at).getTime();
+          if (groupTimestamp > latestTimestamp) {
+            latestTimestamp = groupTimestamp;
+            latestBatch = schedulesInGroup.filter(s => s.batch_id === mostRecentScheduleInGroup.batch_id);
+          }
         }
-        
-        const availableSemestersForYear = this.availableSchedules
-          .filter(s => s.academicYear === this.selectedAcademicYear)
-          .map(s => s.semester);
-        this.semesters = [...new Set(availableSemestersForYear)];
 
-        if (!this.semesters.includes(this.selectedSemester)) {
+        this.latestSchedule = latestBatch;
+
+        // Extract unique academic years and semesters from all schedules
+        const allYears = [...new Set(schedules.map(s => s.academicYear))];
+        this.academicYears = allYears.sort((a, b) => b.localeCompare(a)); // Sort descending
+
+        this.availableSchedules = schedules.map(s => ({ academicYear: s.academicYear, semester: s.semester }));
+
+        if (this.latestSchedule.length > 0) {
+          this.selectedAcademicYear = this.latestSchedule[0].academicYear;
+          this.selectedSemester = this.latestSchedule[0].semester;
+        } else if (this.academicYears.length > 0) {
+          this.selectedAcademicYear = this.academicYears[0];
+          const availableSemesters = [...new Set(this.availableSchedules.filter(s => s.academicYear === this.selectedAcademicYear).map(s => s.semester))];
+          this.semesters = availableSemesters;
           this.selectedSemester = this.semesters[0] || '';
+        } else {
+          this.selectedAcademicYear = '';
+          this.selectedSemester = '';
         }
 
-        this.loadFilteredSchedule();
+        this.onAcademicYearChange(); // This will set semesters and load the filtered schedule
+
       } catch (err) {
-        console.error(err);
-        this.toastError("Failed to load latest schedule");
-      } finally { this.hideLoading(); }
+        console.error('Failed to load latest schedule', err);
+        this.toastError('Failed to load schedule data.');
+      } finally {
+        this.hideLoading();
+      }
     },
 
     loadFilteredSchedule() {
@@ -475,12 +494,11 @@ export default {
 
     async fetchActiveScheduleInfo() {
       try {
-        const res = await fetch(`/api/active-schedule`);
-        if (!res.ok) return;
-        const data = await res.json();
-        this.activeScheduleInfo = data || null;
+        const res = await axios.get('/active-schedule');
+        this.activeScheduleInfo = res.data || null;
       } catch (e) {
-        console.error("Failed to fetch active schedule info", e);
+        console.warn('Failed to fetch active schedule info', e);
+        this.activeScheduleInfo = null;
       }
     },
 
@@ -493,25 +511,26 @@ export default {
     },
 
     async setAsActiveSchedule() {
+      if (this.isTogglingDisabled) return;
+      this.isTogglingDisabled = true;
       this.showLoading();
       try {
-        const payload = {
-          academicYear: this.selectedAcademicYear,
-          semester: this.selectedSemester,
-        };
-        const res = await fetch(`/api/set-active-schedule`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) throw new Error("Failed to set active schedule");
-        this.showStageModal = false;
-        alert("Schedule successfully staged as active.");
+        const batchId = this.latestSchedule[0]?.batch_id;
+        if (!batchId) {
+          this.toastError('Cannot set active schedule: Batch ID is missing.');
+          return;
+        }
+        await axios.post('/finalized-schedules/stage', { batch_id: batchId });
+        this.toastSuccess('Schedule has been set as active.');
         this.fetchActiveScheduleInfo();
+        this.showStageModal = false;
       } catch (err) {
-        console.error(err);
-        this.toastError("Failed to set active schedule");
-      } finally { this.hideLoading(); }
+        console.error('Failed to set active schedule', err);
+        this.toastError(err.response?.data?.message || 'Failed to set active schedule.');
+      } finally {
+        this.hideLoading();
+        this.isTogglingDisabled = false;
+      }
     },
 
     async unsetActiveSchedule() {
@@ -545,12 +564,11 @@ export default {
 
     async loadArchives() {
       try {
-        const res = await fetch(`/api/archives`);
-        if (!res.ok) return;
-        const data = await res.json();
-        this.archives = Array.isArray(data) ? data : (data.archives || []);
-      } catch (e) {
-        console.error("Failed to load archives", e);
+        const res = await axios.get('/archives');
+        this.archives = res.data;
+      } catch (err) {
+        console.error('Failed to load archives', err);
+        this.toastError('Could not load archives.');
       }
     },
 
@@ -567,67 +585,66 @@ export default {
         this.confirmOpen = false;
         this.showLoading();
         try {
-          if (!this.latestSchedule.length) return;
+          if (!this.latestSchedule.length) {
+            this.toastError('No schedule data to archive.');
+            return;
+          }
           const batchId = this.latestSchedule[0].batch_id;
           const payload = {
             academicYear: this.selectedAcademicYear,
             semester: this.selectedSemester,
             batch_id: batchId,
           };
-          const res = await fetch(`/api/archive-batch`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-          if (!res.ok) throw new Error('Failed to archive batch');
+          await axios.post('/archive-batch', payload);
           this.toastSuccess('Current batch archived');
           await this.loadLatestSchedule();
           this.loadArchives();
-        } catch (e) {
-          console.error(e);
-          this.toastError('Failed to archive current batch');
-        } finally { this.hideLoading(); }
+        } catch (err) {
+          console.error(err);
+          this.toastError(err.response?.data?.message || 'Failed to archive current batch');
+        } finally {
+          this.hideLoading();
+        }
       };
     },
 
-    async restoreArchive(a) {
-      this.showLoading();
-      try {
-        const res = await fetch(`/api/archives/${a.id}/restore`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ academicYear: a.academicYear, semester: a.semester, batch_id: a.batch_id }),
-        });
-        if (!res.ok) throw new Error('Failed to restore archive');
-        this.toastSuccess('Archive restored');
-        await this.loadLatestSchedule();
-        this.loadArchives();
-      } catch (e) {
-        console.error(e);
-        this.toastError('Failed to restore archive');
-      } finally { this.hideLoading(); }
-    },
-
-    async deleteArchive(a) {
-      this.confirmMessage = `Delete archive for ${a.academicYear} – ${a.semester} (Batch ${a.batch_id})? This cannot be undone.`;
-      this.confirmOpen = true;
+    async restoreArchive(archive) {
       this.confirmAction = async () => {
-        this.confirmOpen = false;
         this.showLoading();
         try {
-          const res = await fetch(`/api/archives/${a.id}`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ academicYear: a.academicYear, semester: a.semester, batch_id: a.batch_id }),
-          });
-          if (!res.ok) throw new Error('Failed to delete archive');
-          this.archives = this.archives.filter(x => x.id !== a.id);
-          this.toastSuccess('Archive deleted');
-        } catch (e) {
-          console.error(e);
-          this.toastError('Failed to delete archive');
-        } finally { this.hideLoading(); }
+          await axios.post(`/archives/${archive.id}/restore`);
+          this.toastSuccess(`Restored: ${archive.academicYear} – ${archive.semester}`);
+          this.loadLatestSchedule();
+          this.loadArchives();
+        } catch (err) {
+          console.error('Failed to restore archive', err);
+          this.toastError(err.response?.data?.message || 'Failed to restore archive.');
+        } finally {
+          this.hideLoading();
+          this.confirmOpen = false;
+        }
       };
+      this.confirmMessage = `Are you sure you want to restore the schedule for ${archive.academicYear} – ${archive.semester}? This will overwrite any existing schedules for this period.`;
+      this.confirmOpen = true;
+    },
+
+    async deleteArchive(archive) {
+      this.confirmAction = async () => {
+        this.showLoading();
+        try {
+          await axios.delete(`/archives/${archive.id}`);
+          this.toastSuccess('Archive deleted.');
+          this.loadArchives();
+        } catch (err) {
+          console.error('Failed to delete archive', err);
+          this.toastError(err.response?.data?.message || 'Failed to delete archive.');
+        } finally {
+          this.hideLoading();
+          this.confirmOpen = false;
+        }
+      };
+      this.confirmMessage = `Are you sure you want to permanently delete the archived schedule for ${archive.academicYear} – ${archive.semester}?`;
+      this.confirmOpen = true;
     },
 
     formatDate(d) {

@@ -22,7 +22,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import axios from '../../../../axios';
 import { useToast } from '../../../../composables/useToast';
 
 export default {
@@ -47,7 +47,7 @@ export default {
   methods: {
     async submitForm() {
       try {
-        const response = await axios.post('/api/faculty/create-temporary-account', {
+        const response = await axios.post('/faculty/create-temporary-account', {
           email: this.email,
         });
         this.success(response.data.message);

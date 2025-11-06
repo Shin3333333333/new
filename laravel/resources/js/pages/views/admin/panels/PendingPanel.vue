@@ -357,6 +357,7 @@ import { useToast } from "../../../../composables/useToast";
 import ConfirmModal from "../../../../components/ConfirmModal.vue";
 import draggable from "vuedraggable";
 import "/resources/css/create.css";
+import api from "../../../../axios";
 
 export default {
   components: { LoadingModal, ConfirmModal, draggable },
@@ -1293,11 +1294,8 @@ toMinutes(t) {
 
       this.show();
       try {
-        const res = await fetch(`/api/pending-schedules/${this.deletingBatchId}`, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-        });
-        const data = await res.json();
+        const res = await api.delete(`/pending-schedules/batch/${this.deletingBatchId}`);
+        const data = res.data;
         if (data.success) {
           this.showSuccess("✅ Batch deleted successfully!");
           this.loadPendingSchedules(false);
@@ -1650,9 +1648,8 @@ refreshAISuggestions() {
         async loadPendingSchedules(showLoading = true) {
       if (showLoading) this.show();
       try {
-        const res = await fetch("/api/pending-schedules");
-        const data = await res.json();
-        this.batchList = data.pending || data.batches || [];
+        const response = await api.get("/pending-schedules");
+        this.batchList = response.data.pending || response.data.batches || [];
       } catch (err) {
         console.error(err);
         this.showError("Failed to load pending schedules.");
@@ -1665,11 +1662,16 @@ async openBatch(batchId) {
   this.show();
 
   try {
-    // Fetch professors to build a name->id map for robust ID resolution
+    // Fetch professors and batch details in parallel
+    const [profRes, res] = await Promise.all([
+      api.get('/professors'),
+        api.get(`/pending-schedules/${batchId}`)
+    ]);
+
+    // Process professors to build a name->id map for robust ID resolution
     try {
-      const profRes = await fetch('/api/professors');
-      if (profRes.ok) {
-        this.professors = await profRes.json();
+      if (profRes.data) {
+        this.professors = profRes.data;
         const byName = {};
         (Array.isArray(this.professors) ? this.professors : []).forEach(p => {
           const key = (p.name || '').toString().trim().toLowerCase();
@@ -1678,11 +1680,9 @@ async openBatch(batchId) {
         this.professorsByName = byName;
       }
     } catch (e) {
-      console.warn('Failed to fetch professors list for ID normalization', e);
+      console.warn('Failed to process professors list for ID normalization', e);
     }
-
-    const res = await fetch(`/api/pending-schedules/${batchId}`);
-    const data = await res.json();
+    const data = res.data;
 
     // --- Set batch-level academicYear and semester ---
     // Try multiple possible sources for academicYear and semester
@@ -1943,24 +1943,16 @@ async finalizeSchedule() {
       this.hide();
       return;
     }
-     const token = localStorage.getItem('authToken');
     const user = JSON.parse(localStorage.getItem('user'));
-    const res = await fetch(`/api/finalized-schedules`, {
-      method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify({
+    const res = await api.post("/finalized-schedules", {
         schedule: schedulePayload,
         batch_id: this.selectedBatch,
         academicYear: this.academicYear,
         semester: this.semester,
         user_id: user?.id || null
-      }),
-    });
+      });
 
-    const data = await res.json();
+    const data = res.data;
 
     if (data.success) {
       this.showSuccess("✅ Schedule finalized successfully!");
@@ -2006,21 +1998,13 @@ async finalizeSchedule() {
           if (!isNew) mapped.id = s.id;
           return mapped;
         });
-         const token = localStorage.getItem('authToken');
-      const user = JSON.parse(localStorage.getItem('user'));
-      const res = await fetch(`/api/pending-schedules/${this.selectedBatch}/update`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ 
+        const user = JSON.parse(localStorage.getItem('user'));
+      const res = await api.put(`/pending-schedules/${this.selectedBatch}/update`, { 
           schedules: schedulesToSave, 
           deleted_ids: this.deletedIds,
           user_id: user?.id || null
-        })
         });
-        const data = await res.json();
+        const data = res.data;
         if(data.success){
           this.showSuccess("✅ Changes saved successfully!");
           await this.loadPendingSchedules();

@@ -9,6 +9,17 @@ use App\Models\User;
 class LoginController extends Controller
 {
     /**
+     * Show the login form
+     */
+    public function showLoginForm()
+    {
+        if (request()->wantsJson()) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+        return redirect('/'); // Redirect to SPA
+    }
+
+    /**
      * Login user and create token
      */
     public function login(Request $request)

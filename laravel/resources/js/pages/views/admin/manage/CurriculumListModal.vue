@@ -57,7 +57,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import api from '../../../../axios';
 import ConfirmModal from '../../../../components/ConfirmModal.vue';
 import { useToast } from '../../../../composables/useToast';
 
@@ -95,7 +95,7 @@ export default {
     async fetch() {
       this.loading = true;
       try {
-        const res = await axios.get('/api/curriculums');
+        const res = await api.get('/curriculums');
         const data = res.data && res.data.data !== undefined ? res.data.data : res.data;
         this.curriculums = Array.isArray(data) ? data : [];
       } catch (e) {
@@ -127,7 +127,7 @@ export default {
       this.savingId = curr.id;
       try {
         const payload = { name: this.editName };
-        await axios.put(`/api/curriculums/${curr.id}`, payload);
+        await api.put(`/curriculums/${curr.id}`, payload);
         await this.fetch();
         this.$emit('changed');
         this.success('Curriculum updated');
@@ -147,7 +147,7 @@ export default {
         this.confirmOpen = false;
         this.deletingId = curr.id;
         try {
-          await axios.delete(`/api/curriculums/${curr.id}`);
+          await api.delete(`/curriculums/${curr.id}`);
           await this.fetch();
           this.$emit('changed');
           this.success('Curriculum deleted');

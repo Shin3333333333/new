@@ -132,7 +132,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import api from "~/axios";
 import { useLoading } from '../../../../composables/useLoading'; // ✅ import // ✅ import
 
 export default {
@@ -382,53 +382,26 @@ export default {
       if (!item) return;
       this.removeUnavailableByDay(item.dayValue);
     },
-    async handleSubmit() {
+    handleSubmit() {
       try {
-       this.showLoading(); // show global loading
-
         // Format time unavailable data for API
         const timeUnavailableString = this.localForm.unavailableTimes
-          .map(item => `${item.dayName} ${item.start}–${item.end}`)
+          .map(item => {
+            if (item.isWholeDay) return item.dayName;
+            return `${item.dayName} ${item.start}–${item.end}`;
+          })
           .join(", ");
 
-        const payload = {
-          name: this.localForm.name,
-          type: this.localForm.type,
-          department: this.localForm.department,
-          max_load: this.localForm.maxLoad,
-          status: this.localForm.status,
+        const facultyData = {
+          ...this.localForm,
           time_unavailable: timeUnavailableString,
         };
 
-        let res;
-        if (this.localForm.id) {
-          res = await axios.put(`/api/professors/${this.localForm.id}`, payload);
-        } else {
-          res = await axios.post("/api/professors", payload);
-        }
-
-        const returnedTu = res.data.data?.time_unavailable || res.data.time_unavailable || "";
-        const structured = this.normalizeUnavailableItems(this.parseTimeUnavailable(returnedTu));
-        const savedFaculty = {
-          id: res.data.data?.id || res.data.id,
-          name: res.data.data?.name || res.data.name,
-          type: res.data.data?.type || res.data.type,
-          department: res.data.data?.department || res.data.department,
-          maxLoad: res.data.data?.max_load || res.data.max_load,
-          status: res.data.data?.status || res.data.status,
-          unavailableTimes: structured,
-          unavailableTimesDisplay: this.formatDisplay(structured),
-          time_unavailable: returnedTu
-        };
-
-        this.$emit("submit", savedFaculty);
-
+        this.$emit("submit", facultyData);
         this.closeModal();
       } catch (err) {
-        console.error(err);
-        alert("Failed to save faculty");
-      } finally {
-         this.hideLoading(); // hide global loading
+        console.error("Error preparing faculty data:", err);
+        alert("An error occurred while preparing the data.");
       }
     },
   },

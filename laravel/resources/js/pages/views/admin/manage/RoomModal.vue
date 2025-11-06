@@ -37,7 +37,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import api from '~/axios';
 
 export default {
   name: "RoomModal",
@@ -60,9 +60,9 @@ export default {
 
     let res;
     if (this.form.id) {
-      res = await axios.put(`/api/rooms/${this.form.id}`, payload);
+      res = await api.put(`/rooms/${this.form.id}`, payload);
     } else {
-      res = await axios.post("/api/rooms", payload);
+      res = await api.post("/rooms", payload);
     }
 
     // ✅ Always emit consistent object (like FacultyModal)

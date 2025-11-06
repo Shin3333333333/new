@@ -53,4 +53,9 @@ class User extends Authenticatable
     {
         return $this->hasOne(Professor::class);
     }
+
+    public function hasRole($role)
+    {
+        return $this->type && strtolower($this->type->name) === strtolower($role);
+    }
 }

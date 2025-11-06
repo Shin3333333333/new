@@ -1,16 +1,24 @@
   <?php
-  use Illuminate\Support\Facades\Route;
-  /*
-  |--------------------------------------------------------------------------
-  | Web Routes
-  |--------------------------------------------------------------------------
-  |
-  | Here is where you can register web routes for your application. These
-  | routes are loaded by the RouteServiceProvider and all of them will
-  | be assigned to the "web" middleware group. Make something great!
-  |
-  */
-  // SPA Catch-All: Serves Vue app for all routes (/, /schedules, /login, etc.)
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Auth\LoginController;
+
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register web routes for your application. These
+| routes are loaded by the RouteServiceProvider and all of them will
+| be assigned to the "web" middleware group. Make something great!
+|
+*/
+
+Route::get('/login', function () {
+    return redirect('/'); // Redirect to SPA which will handle login
+})->name('login');
+
+// SPA Catch-All: Serves Vue app for all routes (/, /schedules, /login, etc.)
 // Only catch non-API routes
 Route::get('/{any}', function () {
     return view('app');

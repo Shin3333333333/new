@@ -43,30 +43,30 @@ Route::post('/logout', [LoginController::class, 'logout'])->middleware('auth:san
 | Core Resources
 |--------------------------------------------------------------------------
 */
-Route::apiResource('professors', ProfessorsController::class);
-Route::post('/faculty/create-temporary-account', [ProfessorsController::class, 'createTemporaryAccount']);
-Route::apiResource('courses', CoursesController::class);
-Route::apiResource('subjects', SubjectsController::class);
-Route::apiResource('schedules', SchedulesController::class);
-Route::apiResource('error-logs', ErrorLogsController::class);
-Route::apiResource('rooms', RoomsController::class);
-Route::get('/users', [UserController::class, 'index']);
+Route::apiResource('professors', ProfessorsController::class)->middleware('auth:sanctum');
+Route::post('/faculty/create-temporary-account', [ProfessorsController::class, 'createTemporaryAccount'])->middleware('auth:sanctum', 'role:admin');
+Route::apiResource('courses', CoursesController::class)->middleware('auth:sanctum');
+Route::apiResource('subjects', SubjectsController::class)->middleware('auth:sanctum', 'role:admin');
+Route::apiResource('schedules', SchedulesController::class)->middleware('auth:sanctum', 'role:admin');
+Route::apiResource('error-logs', ErrorLogsController::class)->middleware('auth:sanctum', 'role:admin');
+Route::apiResource('rooms', RoomsController::class)->middleware('auth:sanctum');
+Route::get('/users', [UserController::class, 'index'])->middleware('auth:sanctum', 'role:admin');
 Route::get('/user', [UserController::class, 'show'])->middleware('auth:sanctum');
 Route::put('/user', [UserController::class, 'update'])->middleware('auth:sanctum');
 Route::put('/user/password', [UserController::class, 'updatePassword'])->middleware('auth:sanctum');
-Route::put('/professor/details', [ProfessorController::class, 'updateDetails'])->middleware('auth:sanctum');
-Route::get('/professor/details', [ProfessorController::class, 'getDetails'])->middleware('auth:sanctum');
+Route::put('/professor/details', [ProfessorController::class, 'updateDetails'])->middleware('auth:sanctum', 'role:faculty');
+Route::get('/professor/details', [ProfessorController::class, 'getDetails'])->middleware('auth:sanctum', 'role:faculty');
 
 /*
 |--------------------------------------------------------------------------
 | Curriculum Management
 |--------------------------------------------------------------------------
 */
-Route::get('/curriculums', [CurriculumController::class, 'index']);
-Route::post('/curriculums', [CurriculumController::class, 'store']);
-Route::get('/curriculums/{id}/subjects', [CurriculumController::class, 'subjects']);
-Route::put('/curriculums/{id}', [CurriculumController::class, 'update']);
-Route::delete('/curriculums/{id}', [CurriculumController::class, 'destroy']);
+Route::get('/curriculums', [CurriculumController::class, 'index'])->middleware('auth:sanctum', 'role:admin');
+Route::post('/curriculums', [CurriculumController::class, 'store'])->middleware('auth:sanctum', 'role:admin');
+Route::get('/curriculums/{id}/subjects', [CurriculumController::class, 'subjects'])->middleware('auth:sanctum', 'role:admin');
+Route::put('/curriculums/{id}', [CurriculumController::class, 'update'])->middleware('auth:sanctum', 'role:admin');
+Route::delete('/curriculums/{id}', [CurriculumController::class, 'destroy'])->middleware('auth:sanctum', 'role:admin');
 
 /*
 |--------------------------------------------------------------------------
@@ -89,7 +89,7 @@ Route::get('/schedule/data', function () {
     ]);
 });
 
-Route::post('/generate-schedule', [ScheduleController::class, 'generateSchedule']);
+Route::post('/generate-schedule', [ScheduleController::class, 'generateSchedule'])->middleware('auth:sanctum', 'role:admin');
 Route::post('/save-schedule', [PendingScheduleController::class, 'store'])->middleware('auth:sanctum');
 Route::get('/pending-schedules', [PendingScheduleController::class, 'index']);
 Route::get('/pending-schedules/{batch_id}', [PendingScheduleController::class, 'show']);

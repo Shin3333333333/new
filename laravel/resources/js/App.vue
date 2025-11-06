@@ -1,5 +1,4 @@
 <template>
-
   <!-- unauthenticated -->
 
   <div v-if="!isAuthenticated" class="login-full">
@@ -84,19 +83,20 @@
         <main :class="{ 'content-card': !isPanel }">
           <router-view />
         </main>
-        <ToastContainer />
       </div>
     </div>
   </div>
+  <ToastContainer />
 </template>
 
 <script>
 import profilepic from './assets/profilepic.png';
 import ToastContainer from './components/ToastContainer.vue';
+import LoadingModal from './components/LoadingModal.vue';
 
 export default {
   name: 'App',
-  components: { ToastContainer },
+  components: { ToastContainer, LoadingModal },
   data() {
     return {
       profilepic,
@@ -156,7 +156,7 @@ export default {
       if (newVal) {
         this.scheduleUpdateInterval = setInterval(() => {
           this.fetchActiveScheduleInfo();
-        }, 5000);
+        }, 30000);
       }
     },
   },
