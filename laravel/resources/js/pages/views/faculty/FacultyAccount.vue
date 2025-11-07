@@ -1,5 +1,12 @@
 <template>
   <div class="faculty-account-container">
+    <ConfirmModal
+      :show="showConfirmModal"
+      :title="confirmTitle"
+      :message="confirmMessage"
+      @confirm="confirmAction"
+      @cancel="showConfirmModal = false"
+    />
     <div class="main-content">
       <div class="left-column">
         <div class="user-card">
@@ -22,15 +29,15 @@
           <form @submit.prevent="updateProfile">
             <div class="form-group">
               <label for="name">First Name</label>
-              <input type="text" id="name" v-model="user.name" :disabled="!isEditingAccountInfo">
+              <input type="text" id="name" v-model="user.name" :disabled="!isEditingAccountInfo" required>
             </div>
             <div class="form-group">
               <label for="last_name">Last Name</label>
-              <input type="text" id="last_name" v-model="user.last_name" :disabled="!isEditingAccountInfo">
+              <input type="text" id="last_name" v-model="user.last_name" :disabled="!isEditingAccountInfo" required>
             </div>
             <div class="form-group">
               <label for="email">Email</label>
-              <input type="email" id="email" v-model="user.email" disabled>
+              <input type="email" id="email" v-model="user.email" :disabled="!isEditingAccountInfo" required>
             </div>
             <div class="button-group" v-if="isEditingAccountInfo">
               <button type="submit" class="btn-submit">Update Credentials</button>
@@ -136,6 +143,7 @@
             </div>
           </form>
         </div>
+     
       </div>
     </div>
   </div>
@@ -144,14 +152,23 @@
 <script>
 import axios from '../../../axios';
 import { useToast } from '../../../composables/useToast';
+import emitter from '@/eventBus';
+import ConfirmModal from "@/components/ConfirmModal.vue";
 
 export default {
+  components: {
+    ConfirmModal,
+  },
   setup() {
     const { success, error } = useToast();
     return { success, error };
   },
   data() {
     return {
+      showConfirmModal: false,
+      confirmTitle: "",
+      confirmMessage: "",
+      confirmAction: () => {},
       user: {},
       passwordForm: {
         password: '',
@@ -168,6 +185,7 @@ export default {
       isEditingProfessorDetails: false,
       originalUser: null,
       originalProfessor: null,
+      isTemporary: false, // Add this line
       weekDays: [
         { name: "Mon", value: 1 },
         { name: "Tue", value: 2 },
@@ -192,9 +210,18 @@ export default {
     }
   },
   async mounted() {
+    this.isTemporary = localStorage.getItem('is_temporary') === 'true';
     await this.fetchDepartments();
     this.fetchUser();
     this.fetchProfessorDetails();
+  },
+  beforeRouteLeave(to, from, next) {
+    if (this.isTemporary && !this.areAllFieldsFilled()) {
+      this.error('Please fill in all required fields before leaving this page.');
+      next(false);
+    } else {
+      next();
+    }
   },
   methods: {
     fetchDepartments() {
@@ -235,20 +262,43 @@ export default {
         });
     },
     updateProfile() {
-      const userToUpdate = { ...this.user, name: `${this.user.name} ${this.user.last_name}`.trim() };
+      this.showConfirm(
+        "Confirm Profile Update",
+        "Are you sure you want to update your account information?",
+        this.executeProfileUpdate
+      );
+    },
+    executeProfileUpdate() {
+      this.showConfirmModal = false;
+      const userToUpdate = { name: `${this.user.name} ${this.user.last_name}`.trim(), email: this.user.email };
       axios.put('/user', userToUpdate)
         .then(() => {
           this.success('Profile updated successfully!');
           this.isEditingAccountInfo = false;
           this.originalUser = null;
           this.fetchUser();
+          localStorage.setItem('userName', `${this.user.name} ${this.user.last_name}`);
+          emitter.emit('user-updated');
         })
         .catch(error => {
-          console.error('Error updating profile:', error);
-          this.error('Error updating profile. Please check the console for details.');
+          if (error.response && error.response.data && error.response.data.errors) {
+            console.error('Validation errors:', error.response.data.errors);
+            this.error('Please correct the validation errors.');
+          } else {
+            console.error('Error updating profile:', error);
+            this.error('Error updating profile. Please check the console for details.');
+          }
         });
     },
     updatePassword() {
+      this.showConfirm(
+        "Confirm Password Update",
+        "Are you sure you want to update your password?",
+        this.executePasswordUpdate
+      );
+    },
+    executePasswordUpdate() {
+      this.showConfirmModal = false;
       axios.put('/user/password', this.passwordForm)
         .then(response => {
           this.success('Password updated successfully!');
@@ -257,6 +307,8 @@ export default {
             password_confirmation: ''
           };
           this.showPasswordUpdate = false;
+          localStorage.removeItem('is_temporary');
+          this.isTemporary = false;
         })
         .catch(error => {
           console.error('Error updating password:', error);
@@ -264,6 +316,14 @@ export default {
         });
     },
     updateProfessorDetails() {
+      this.showConfirm(
+        "Confirm Details Update",
+        "Are you sure you want to update your professor details?",
+        this.executeProfessorDetailsUpdate
+      );
+    },
+    executeProfessorDetailsUpdate() {
+      this.showConfirmModal = false;
       const payload = {
         name: `${this.user.name} ${this.user.last_name}`.trim(),
         type: this.professor.type,
@@ -302,6 +362,12 @@ export default {
     },
     areAllFieldsFilled() {
       return this.professor.specialization && this.professor.type && this.user.name && this.user.last_name;
+    },
+    showConfirm(title, message, action) {
+      this.confirmTitle = title;
+      this.confirmMessage = message;
+      this.confirmAction = action;
+      this.showConfirmModal = true;
     },
     parseTimeUnavailable(timeString) {
         if (!timeString || typeof timeString !== 'string') {

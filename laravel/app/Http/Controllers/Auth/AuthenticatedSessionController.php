@@ -60,4 +60,9 @@ class AuthenticatedSessionController extends Controller
 
         return redirect('/');
     }
+
+    public function getAuthenticatedUser(Request $request)
+    {
+        return $request->user();
+    }
 }

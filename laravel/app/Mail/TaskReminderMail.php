@@ -8,20 +8,17 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
-use App\Models\Task; // Assuming you have a Task model
 
 class TaskReminderMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public $task;
-
     /**
      * Create a new message instance.
      */
-    public function __construct(Task $task)
+    public function __construct()
     {
-        $this->task = $task;
+        //
     }
 
     /**
@@ -30,7 +27,7 @@ class TaskReminderMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Task Reminder',
+            subject: 'Task Reminder Mail',
         );
     }
 
@@ -40,7 +37,7 @@ class TaskReminderMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.task_reminder',
+            view: 'view.name',
         );
     }
 

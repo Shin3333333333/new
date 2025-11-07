@@ -57,8 +57,9 @@ export default {
         if (res.data.user) {
           localStorage.setItem("userName", res.data.user.name);
           localStorage.setItem("userType", res.data.user.user_type);
+          localStorage.setItem("is_temporary", res.data.user.is_temporary);
+          localStorage.setItem("user_id", res.data.user.id);
         }
-        api.defaults.headers.common["Authorization"] = `Bearer ${res.data.token}`;
 
         // Redirect based on user type and temporary status
         if (res.data.user) {

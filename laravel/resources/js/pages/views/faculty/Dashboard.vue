@@ -39,7 +39,6 @@
       <div class="view-tabs">
         <button :class="{ active: currentView === 'matrix' }" @click="currentView = 'matrix'">Matrix</button>
         <button :class="{ active: currentView === 'table' }" @click="currentView = 'table'">Table</button>
-        <button :class="{ active: currentView === 'tasks' }" @click="currentView = 'tasks'">Tasks</button>
       </div>
 
       <div v-if="currentView === 'matrix'" class="schedule-grid">
@@ -95,10 +94,6 @@
           </tfoot>
         </table>
       </div>
-
-      <div v-if="currentView === 'tasks'">
-        <TaskManagement />
-      </div>
     </div>
   </div>
 </template>
@@ -106,13 +101,9 @@
 <script>
 import axios from '@/axios';
 import * as XLSX from 'xlsx';
-import TaskManagement from './TaskManagement.vue';
 
 export default {
   name: 'FacultyDashboard',
-  components: {
-    TaskManagement,
-  },
   data() {
     return {
       schedule: [],

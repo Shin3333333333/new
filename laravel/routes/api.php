@@ -11,6 +11,7 @@ Route::get('/departments', function () {
     $json = File::get($path);
     return response($json, 200, ['Content-Type' => 'application/json']);
 });
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\{
     ProfessorsController,
@@ -27,7 +28,8 @@ use App\Http\Controllers\{
     ErrorLogController,
     ScheduleArchiveController,
     UserController,
-    ProfessorController
+    ProfessorController,
+    ArchivedFinalizedScheduleController
 };
 
 /*
@@ -51,12 +53,13 @@ Route::apiResource('schedules', SchedulesController::class)->middleware('auth:sa
 Route::apiResource('error-logs', ErrorLogsController::class)->middleware('auth:sanctum', 'role:admin');
 Route::apiResource('rooms', RoomsController::class)->middleware('auth:sanctum');
 Route::get('/users', [UserController::class, 'index'])->middleware('auth:sanctum', 'role:admin');
-Route::get('/user', [UserController::class, 'show'])->middleware('auth:sanctum');
+Route::get('/user', [AuthenticatedSessionController::class, 'getAuthenticatedUser'])->middleware('auth:sanctum');
 Route::put('/user', [UserController::class, 'update'])->middleware('auth:sanctum');
 Route::put('/user/password', [UserController::class, 'updatePassword'])->middleware('auth:sanctum');
 Route::put('/professor/details', [ProfessorController::class, 'updateDetails'])->middleware('auth:sanctum', 'role:faculty');
 Route::get('/professor/details', [ProfessorController::class, 'getDetails'])->middleware('auth:sanctum', 'role:faculty');
 Route::get('/faculty/schedule', [ProfessorController::class, 'getSchedule'])->middleware('auth:sanctum', 'role:faculty');
+Route::get('/faculty/{userId}/schedule-history', [ProfessorController::class, 'getScheduleHistory'])->middleware('auth:sanctum', 'role:faculty');
 
 /*
 |--------------------------------------------------------------------------
@@ -101,13 +104,11 @@ Route::delete('/pending-schedules/{batch_id}', [PendingScheduleController::class
 // Finalized schedules
 Route::post('/finalized-schedules', [FinalizedScheduleController::class, 'saveFinalizedSchedule'])->middleware('auth:sanctum');
 Route::get('/finalized-schedules', [FinalizedScheduleController::class, 'index']);
-Route::post('/finalized-schedules/stage', [FinalizedScheduleController::class, 'stageActive']);
 Route::get('/finalized-schedules/active', [FinalizedScheduleController::class, 'getActive']);
 // optional
 Route::get('/finalized-schedules/{batch_id}', [FinalizedScheduleController::class, 'show']); // optional
 Route::delete('/finalized-schedules/{batch_id}', [FinalizedScheduleController::class, 'destroy']); // optional
 
-Route::post('/finalized-schedules/{batch_id}/stage', [FinalizedScheduleController::class, 'stage']);
 Route::post('/finalized-schedules/{batch_id}/activate', [FinalizedScheduleController::class, 'activate']);
 Route::post('/finalized-schedules/{batch_id}/archive', [FinalizedScheduleController::class, 'archive']);
 
@@ -116,19 +117,6 @@ Route::post('/set-active-schedule', [ActiveScheduleController::class, 'setActive
 Route::post('/detect-conflicts', [ScheduleController::class, 'detectConflicts']);
 Route::get('/errors', [ErrorLogController::class, 'index']);
 
-use App\Http\Controllers\TaskController;
-
-/*
-|--------------------------------------------------------------------------
-| Task Management
-|--------------------------------------------------------------------------
-*/
-Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/tasks', [TaskController::class, 'index']);
-    Route::post('/tasks', [TaskController::class, 'store']);
-    Route::delete('/tasks/{task}', [TaskController::class, 'destroy']);
-});
-
 /*
 |--------------------------------------------------------------------------
 | Archives (stubs to support frontend)
@@ -136,6 +124,7 @@ Route::middleware('auth:sanctum')->group(function () {
 */
 Route::post('/archive-batch', [ScheduleArchiveController::class, 'archiveBatch']);
 Route::get('/archives', [ScheduleArchiveController::class, 'listArchives']);
-Route::post('/archives/{id}/restore', [ScheduleArchiveController::class, 'restore']);
+Route::post('/archives/{academicYear}/{semester}/{batch_id}/restore', [ScheduleArchiveController::class, 'restore']);
 Route::delete('/archives/{id}', [ScheduleArchiveController::class, 'delete']);
+Route::delete('/archives/{academicYear}/{semester}/{batch_id}', [ArchivedFinalizedScheduleController::class, 'destroy']);
 Route::post('/unset-active-schedule', [ScheduleArchiveController::class, 'unsetActive']);

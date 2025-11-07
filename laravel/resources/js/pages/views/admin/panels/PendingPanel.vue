@@ -172,6 +172,7 @@
             <table class="create-table stylish-table">
               <thead>
                 <tr>
+                  <th v-if="editMode && deleteMode"><input type="checkbox" @change="toggleAllUnassigned($event)" /></th>
                   <th>Subject Code</th>
                   <th>Subject Title</th>
                   <th>Course Section</th>
@@ -185,6 +186,7 @@
                   :key="u.id"
                   :style="{ background: getSuggestionColor(getPossibleAssignments(u).length) }"
                 >
+                  <td v-if="editMode && deleteMode"><input type="checkbox" v-model="selectedRows" :value="u.id" /></td>
                   <td>{{ u.subject_code || u.subject_code_label || '—' }}</td>
                   <td>{{ u.subject || u.subject_title || '—' }}</td>
                   <td>{{ u.course_section || '—' }}</td>
@@ -346,6 +348,13 @@
       @confirm="executeDelete"
       @cancel="cancelDelete"
     />
+    <ConfirmModal
+      :show="showFinalizeConfirm"
+      title="Confirm Finalization"
+      :message="finalizeConfirmText"
+      @confirm="confirmFinalize"
+      @cancel="showFinalizeConfirm = false"
+    />
   </div>
 </template>
 
@@ -394,6 +403,9 @@ selectedAddFaculty: "",
       deleteConfirmText: "",
       deleteAction: null, // 'batch' or 'rows'
       deletingBatchId: null,
+      showFinalizeConfirm: false,
+      finalizeConfirmText: "",
+      finalizeAction: null,
     };
   },
   setup() {
@@ -949,8 +961,33 @@ undoLastAction() {
   this.detectConflicts();
   this.refreshAISuggestions();
   this.pendingSchedules = [...this.pendingSchedules]; // force re-render
-}
-,
+},
+
+toggleAllUnassigned(event) {
+  const isChecked = event.target.checked;
+  const unassignedIds = this.pendingSchedules.filter(s => !s.faculty || s.faculty === 'Unknown').map(s => s.id);
+
+  if (isChecked) {
+    this.selectedRows = [...new Set([...this.selectedRows, ...unassignedIds])];
+  } else {
+    this.selectedRows = this.selectedRows.filter(id => !unassignedIds.includes(id));
+  }
+},
+
+deleteUnassigned(subjectId) {
+  const subjectToDelete = this.pendingSchedules.find(s => s.id === subjectId);
+  if (!subjectToDelete) return;
+
+  const deletedRows = [subjectToDelete];
+
+  this.pendingSchedules = this.pendingSchedules.filter(s => s.id !== subjectId);
+
+  if (!subjectToDelete.isNew && !isNaN(Number(subjectToDelete.id))) {
+    this.deletedIds.push(Number(subjectToDelete.id));
+  }
+
+  this.actionHistory.push({ type: 'delete_rows', rows: deletedRows });
+},
     parseSlotLabel(label) {
   if (!label || typeof label !== 'string') return null;
   try {
@@ -1294,7 +1331,7 @@ toMinutes(t) {
 
       this.show();
       try {
-        const res = await api.delete(`/pending-schedules/batch/${this.deletingBatchId}`);
+        const res = await api.delete(`/pending-schedules/${this.deletingBatchId}`);
         const data = res.data;
         if (data.success) {
           this.showSuccess("✅ Batch deleted successfully!");
@@ -1332,7 +1369,7 @@ toMinutes(t) {
       const removedRows = this.pendingSchedules.filter(s => selectedSet.has(s.id));
       const persistedIds = removedRows
         .map(r => r && r.id)
-        .filter(id => !isNaN(Number(id)))
+        .filter(id => !isNaN(Number(id)) && !removedRows.find(r => r.id === id).isNew)
         .map(id => Number(id));
       if (persistedIds.length) {
         const set = new Set(this.deletedIds.map(n => Number(n)));
@@ -1866,7 +1903,12 @@ async openBatch(batchId) {
   }
 },
 
-async finalizeSchedule() {
+finalizeSchedule() {
+      this.finalizeConfirmText = "Are you sure you want to finalize this schedule? This will move it to the active schedules.";
+      this.showFinalizeConfirm = true;
+    },
+
+    async confirmFinalize() {
   if (!this.selectedBatch) return this.showError("No batch selected to finalize.");
 
   // Check for unassigned subjects
@@ -1970,6 +2012,7 @@ async finalizeSchedule() {
     this.showError("Network error while finalizing schedule.");
   } finally {
     this.hide();
+    this.showFinalizeConfirm = false;
   }
 }
 ,

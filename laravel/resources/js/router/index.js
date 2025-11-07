@@ -29,6 +29,12 @@ const routes = [
     component: () => import('../pages/views/faculty/Calendar.vue'),
     meta: { roles: ['faculty'] }
   },
+  {
+    path: '/faculty/history',
+    name: 'faculty-history',
+    component: () => import('../pages/views/faculty/ScheduleHistory.vue'),
+    meta: { roles: ['faculty'] }
+  },
   { path: '/', redirect: '/dashboard' },
 ];
 

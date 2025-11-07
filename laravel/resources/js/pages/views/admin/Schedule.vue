@@ -181,12 +181,13 @@
       :show="confirmOpen"
       :message="confirmMessage"
       @cancel="confirmOpen = false"
-      @confirm="confirmAction && confirmAction()"
+      @confirm="executeConfirmAction"
     />
   </div>
 </template>
 
 <script>
+import emitter from '../../../eventBus';
 import LoadingModal from "../../../components/LoadingModal.vue";
 import ConfirmModal from "../../../components/ConfirmModal.vue";
 import { useLoading } from "../../../composables/useLoading";
@@ -524,13 +525,16 @@ export default {
         const payload = {
           academicYear: this.selectedAcademicYear,
           semester: this.selectedSemester,
-          batch_id: batchId, // Ensure batch_id is sent
+          batch_id: batchId,
         };
 
-        await axios.post('/finalized-schedules/stage', payload);
+        await axios.post('/set-active-schedule', payload);
         this.toastSuccess('Schedule has been set as active.');
-        this.fetchActiveScheduleInfo();
-        this.showStageModal = false;
+                emitter.emit('schedule-updated'); // Emit event
+                this.fetchActiveScheduleInfo();
+                this.loadArchives();
+                this.loadLatestSchedule();
+                this.showStageModal = false;
       } catch (err) {
         console.error('Failed to set active schedule', err);
         this.toastError(err.response?.data?.message || 'Failed to set active schedule.');
@@ -619,7 +623,7 @@ export default {
       this.confirmAction = async () => {
         this.showLoading();
         try {
-          await axios.post(`/archives/${archive.id}/restore`);
+          await axios.post(`/archives/${archive.academicYear}/${archive.semester}/${archive.batch_id}/restore`);
           this.toastSuccess(`Restored: ${archive.academicYear} – ${archive.semester}`);
           this.loadLatestSchedule();
           this.loadArchives();
@@ -639,7 +643,7 @@ export default {
       this.confirmAction = async () => {
         this.showLoading();
         try {
-          await axios.delete(`/archives/${archive.id}`);
+          await axios.delete(`/archives/${archive.academicYear}/${archive.semester}/${archive.batch_id}`);
           this.toastSuccess('Archive deleted.');
           this.loadArchives();
         } catch (err) {
@@ -708,6 +712,12 @@ export default {
     getSectionTotal(schedules) {
       if (!Array.isArray(schedules)) return 0;
       return schedules.reduce((sum, s) => sum + (parseFloat(s.units) || 0), 0);
+    },
+
+    executeConfirmAction() {
+      if (this.confirmAction) {
+        this.confirmAction();
+      }
     },
   },
 };

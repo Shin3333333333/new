@@ -74,7 +74,7 @@ class ScheduleArchiveController extends Controller
             ->get()
             ->map(function($r){
                 return [
-                    'id' => md5($r->academicYear.'|'.$r->semester.'|'.$r->batch_id),
+                    'id' => $r->batch_id,
                     'academicYear' => $r->academicYear,
                     'semester' => $r->semester,
                     'batch_id' => $r->batch_id,
@@ -86,19 +86,11 @@ class ScheduleArchiveController extends Controller
         return response()->json($grouped);
     }
 
-    public function restore($id): JsonResponse
+    public function restore($academicYear, $semester, $batchId): JsonResponse
     {
-        // id is a hash; find group by provided academicYear/semester/batch via request
-        $year = request('academicYear');
-        $sem = request('semester');
-        $batchId = request('batch_id');
-        if (!$year || !$sem || !$batchId) {
-            return response()->json(['success' => false, 'message' => 'Missing academicYear/semester/batch_id'], 422);
-        }
-
-        DB::transaction(function () use ($year, $sem, $batchId) {
-            $rows = ArchivedFinalizedSchedule::where('academicYear', $year)
-                ->where('semester', $sem)
+        DB::transaction(function () use ($academicYear, $semester, $batchId) {
+            $rows = ArchivedFinalizedSchedule::where('academicYear', $academicYear)
+                ->where('semester', $semester)
                 ->where('batch_id', $batchId)
                 ->get();
             foreach ($rows as $r) {
@@ -119,8 +111,8 @@ class ScheduleArchiveController extends Controller
                     'payload' => $r->payload,
                 ]);
             }
-            ArchivedFinalizedSchedule::where('academicYear', $year)
-                ->where('semester', $sem)
+            ArchivedFinalizedSchedule::where('academicYear', $academicYear)
+                ->where('semester', $semester)
                 ->where('batch_id', $batchId)
                 ->delete();
         });
@@ -158,5 +150,3 @@ class ScheduleArchiveController extends Controller
         return response()->json(['success' => true, 'message' => 'Active schedule unset.']);
     }
 }
-
-

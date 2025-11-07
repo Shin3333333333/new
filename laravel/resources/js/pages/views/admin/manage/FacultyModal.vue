@@ -21,7 +21,10 @@
 
         <div class="form-group col-6">
           <label>Department:</label>
-          <input v-model="localForm.department" type="text" required />
+          <select v-model="localForm.department" required>
+            <option value="">Select Department</option>
+            <option v-for="dept in departments" :key="dept.id" :value="dept.name">{{ dept.name }}</option>
+          </select>
         </div>
 
         <div class="form-group col-6">
@@ -132,7 +135,8 @@
 </template>
 
 <script>
-import api from "~/axios";
+import api from "@/axios";
+import departmentsData from "@ai/departments.json";
 import { useLoading } from '../../../../composables/useLoading'; // ✅ import // ✅ import
 
 export default {
@@ -177,6 +181,7 @@ export default {
       immediate: true,
       handler(val) {
         if (val) {
+          this.loadDepartments();
           // Build unavailableTimes from various possible shapes in form
           let parsedItems = [];
           if (Array.isArray(this.form?.unavailableTimes)) {
@@ -213,6 +218,13 @@ export default {
   methods: {
     closeModal() {
       this.$emit("update:show", false);
+    },
+
+    loadDepartments() {
+      this.departments = Object.entries(departmentsData).map(([id, details]) => ({
+        id,
+        name: details.name,
+      }));
     },
     
     // Parse existing time unavailable string

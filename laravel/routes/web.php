@@ -22,10 +22,4 @@ Route::get('/login', function () {
 // Only catch non-API routes
 Route::get('/{any}', function () {
     return view('app');
-})->where('any', '^(?!api|run-scheduler).*$');
-
-// Route to trigger the scheduler via a web cron
-Route::get('/run-scheduler/aBcDeFgHiJkLmNoPqRsTuVwXyZ123456', function () {
-    \Illuminate\Support\Facades\Artisan::call('schedule:run');
-    return 'Scheduler executed.';
-});
+})->where('any', '^(?!api).*$');

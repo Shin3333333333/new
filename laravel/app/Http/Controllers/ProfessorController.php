@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\ArchivedFinalizedSchedule;
+use App\Models\Professor;
 use Illuminate\Support\Facades\Auth;
 
 use Illuminate\Support\Facades\Log;
@@ -128,5 +130,25 @@ class ProfessorController extends Controller
             Log::error($th);
             return response()->json(['error' => $th->getMessage(), 'trace' => $th->getTraceAsString()], 500);
         }
+    }
+
+    public function getScheduleHistory($userId)
+    {
+        $professor = Professor::where('user_id', $userId)->first();
+
+        if (!$professor) {
+            return response()->json([], 404);
+        }
+
+        $schedules = ArchivedFinalizedSchedule::where('faculty_id', $professor->id)
+            ->join('subjects', 'archived_finalized_schedules.subject', '=', 'subjects.subject_title')
+            ->get([
+                'archived_finalized_schedules.*',
+                'subjects.total_units as units',
+                'archived_finalized_schedules.created_at as date_last_used',
+                'archived_finalized_schedules.academicYear as academic_year'
+            ]);
+
+        return response()->json($schedules);
     }
 }

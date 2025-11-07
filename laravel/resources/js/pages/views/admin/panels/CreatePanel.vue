@@ -1192,6 +1192,11 @@ undoLastAssignment() {
   },
     
     async generateSchedule() {
+      if (!/^\d{4}-\d{4}$/.test(this.academicYear)) {
+        this.message = "Invalid academic year format. Please use YYYY-YYYY.";
+        this.messageType = "error";
+        return;
+      }
       if (!this.academicYear) {
         this.showError("Please provide Academic Year before generating.");
         return;

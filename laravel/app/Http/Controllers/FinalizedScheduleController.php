@@ -7,7 +7,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Models\FinalizedSchedule;
 use App\Models\PendingSchedule;
+use App\Models\Professor;
 use App\Models\ActiveSchedule;
+use App\Models\ArchivedFinalizedSchedule;
 
 class FinalizedScheduleController extends Controller
 {
@@ -45,9 +47,17 @@ class FinalizedScheduleController extends Controller
         try {
             DB::transaction(function () use ($scheduleArray, $userId, $batchId, $finalAcademicYear, $semester) {
                 foreach ($scheduleArray as $row) {
+                    $facultyId = $row['faculty_id'] ?? null;
+                    if (!$facultyId && !empty($row['faculty'])) {
+                        $professor = Professor::where('name', $row['faculty'])->first();
+                        if ($professor) {
+                            $facultyId = $professor->id;
+                        }
+                    }
+
                     FinalizedSchedule::create([
                         'faculty' => $row['faculty'] ?? null,
-                        'faculty_id' => $row['faculty_id'] ?? null,
+                        'faculty_id' => $facultyId,
                         'subject' => $row['subject'] ?? null,
                         'time' => $row['time'] ?? null,
                         'classroom' => $row['classroom'] ?? null,
@@ -151,32 +161,74 @@ class FinalizedScheduleController extends Controller
 
         $batchId = $validated['batch_id'];
 
-        // Find the schedule to activate
+        // Find the schedule to activate to make sure it exists
         $scheduleToActivate = FinalizedSchedule::where('batch_id', $batchId)->first();
 
         if (!$scheduleToActivate) {
-            return response()->json(['success' => false, 'message' => 'Schedule not found.'], 404);
+            return response()->json(['success' => false, 'message' => 'Schedule to be activated not found.'], 404);
         }
 
-        // Deactivate all other schedules
-        FinalizedSchedule::where('status', 'active')->update(['status' => 'finalized']);
+        try {
+            DB::transaction(function () use ($batchId, $scheduleToActivate) {
+                // Find the currently active schedule
+                $currentActive = ActiveSchedule::latest()->first();
 
-        // Activate the new schedule
-        $scheduleToActivate->status = 'active';
-        $scheduleToActivate->save();
+                if ($currentActive) {
+                    // Prevent re-archiving the same batch
+                    if ($currentActive->batch_id === $batchId) {
+                        return;
+                    }
+                    
+                    // 1. Find all schedules belonging to the currently active batch
+                    $schedulesToArchive = FinalizedSchedule::where('batch_id', $currentActive->batch_id)->get();
 
-        // Truncate the active schedule table to ensure only one is active
-        ActiveSchedule::truncate();
+                    if ($schedulesToArchive->isNotEmpty()) {
+                        // 2. Copy them to the archive table
+                        foreach ($schedulesToArchive as $schedule) {
+                            ArchivedFinalizedSchedule::create([
+                                'user_id' => $schedule->user_id,
+                                'batch_id' => $schedule->batch_id,
+                                'faculty_id' => $schedule->faculty_id,
+                                'faculty' => $schedule->faculty,
+                                'subject' => $schedule->subject,
+                                'time' => $schedule->time,
+                                'classroom' => $schedule->classroom,
+                                'course_code' => $schedule->course_code,
+                                'course_section' => $schedule->course_section,
+                                'units' => $schedule->units,
+                                'academicYear' => $schedule->academicYear,
+                                'semester' => $schedule->semester,
+                                'status' => 'archived', // Explicitly set status
+                                'payload' => $schedule->payload,
+                                'created_at' => $schedule->created_at, // Preserve original creation time
+                                'updated_at' => $schedule->updated_at, // Preserve original update time
+                            ]);
+                        }
 
-        // Create the new active schedule entry
-        ActiveSchedule::create([
-            'academicYear' => $scheduleToActivate->academicYear,
-            'semester' => $scheduleToActivate->semester,
-            'batch_id' => $batchId,
-            'staged_at' => now(),
-        ]);
+                        // 3. Delete them from the finalized_schedules table
+                        FinalizedSchedule::where('batch_id', $currentActive->batch_id)->delete();
+                    }
+                }
 
-        return response()->json(['success' => true, 'message' => 'Schedule staged successfully.']);
+                // 4. Truncate the active schedule table to ensure only one is active
+                ActiveSchedule::truncate();
+
+                // 5. Create the new active schedule entry for the new batch
+                ActiveSchedule::create([
+                    'academicYear' => $scheduleToActivate->academicYear,
+                    'semester' => $scheduleToActivate->semester,
+                    'batch_id' => $batchId,
+                    'staged_at' => now(),
+                ]);
+            });
+
+            return response()->json(['success' => true, 'message' => 'Schedule staged successfully.']);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error staging schedule: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**

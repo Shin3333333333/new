@@ -1,5 +1,12 @@
 <template>
   <div class="admin-account-container">
+    <ConfirmModal
+      :show="showConfirmModal"
+      :title="confirmTitle"
+      :message="confirmMessage"
+      @confirm="confirmAction"
+      @cancel="showConfirmModal = false"
+    />
     <div class="main-content">
       <div class="left-column">
         <div class="user-card">
@@ -19,11 +26,11 @@
           <form @submit.prevent="updateProfile">
             <div class="form-group">
               <label for="name">Name</label>
-              <input type="text" id="name" v-model="user.name" :disabled="!isEditingCredentials">
+              <input type="text" id="name" v-model="user.name" :disabled="!isEditingCredentials" required>
             </div>
             <div class="form-group">
               <label for="email">Email</label>
-              <input type="email" id="email" v-model="user.email" :disabled="!isEditingCredentials">
+              <input type="email" id="email" v-model="user.email" :disabled="!isEditingCredentials"  required>
             </div>
             <div class="button-group">
               <button type="button" class="btn-secondary" @click="toggleEditCredentials">{{ isEditingCredentials ? 'Cancel' : 'Edit Credentials' }}</button>
@@ -61,16 +68,25 @@
 </template>
 
 <script>
+import ConfirmModal from '@/components/ConfirmModal.vue';
+import emitter from '@/eventBus';
 import axios from '@/axios';
 import { useToast } from '@/composables/useToast';
 
 export default {
+  components: {
+    ConfirmModal
+  },
   setup() {
     const { success, error } = useToast();
     return { toastSuccess: success, toastError: error };
   },
   data() {
     return {
+      showConfirmModal: false,
+      confirmTitle: "",
+      confirmMessage: "",
+      confirmAction: () => {},
       user: {},
       passwordForm: {
         current_password: '',
@@ -100,11 +116,27 @@ export default {
     toggleChangePassword() {
       this.isChangingPassword = !this.isChangingPassword;
     },
+    showConfirm(title, message, action) {
+      this.confirmTitle = title;
+      this.confirmMessage = message;
+      this.confirmAction = action;
+      this.showConfirmModal = true;
+    },
     updateProfile() {
+      this.showConfirm(
+        "Confirm Profile Update",
+        "Are you sure you want to update your profile?",
+        this.executeProfileUpdate
+      );
+    },
+    executeProfileUpdate() {
+      this.showConfirmModal = false;
       axios.put('/user', this.user)
         .then(response => {
           this.toastSuccess('Profile updated successfully!');
           this.isEditingCredentials = false;
+          localStorage.setItem('userName', this.user.name);
+          emitter.emit('user-updated');
         })
         .catch(error => {
           console.error('Error updating profile:', error);
@@ -112,6 +144,14 @@ export default {
         });
     },
     updatePassword() {
+      this.showConfirm(
+        "Confirm Password Update",
+        "Are you sure you want to update your password?",
+        this.executePasswordUpdate
+      );
+    },
+    executePasswordUpdate() {
+      this.showConfirmModal = false;
       axios.put('/user/password', this.passwordForm)
         .then(response => {
           this.toastSuccess('Password updated successfully!');
